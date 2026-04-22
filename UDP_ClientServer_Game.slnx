@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="UDP_Client/UDP_Client.csproj" />
+  <Project Path="UDP_Server/UDP_Server.csproj" />
+</Solution>
