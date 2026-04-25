@@ -21,12 +21,18 @@ namespace UDP_Client
             while (true)
             {
                 string? input = Console.ReadLine();
+
                 if (string.IsNullOrEmpty(input))
                     continue;
-                if (input.ToLower() == "exit")
+                if (input.ToLower() == "exit" || input.ToLower() == "quit")
                 {
                     Send("EXIT");
                     break;
+                }
+                if (input.ToLower() == "list")
+                {
+                    Send("LIST");
+                    continue;
                 }
                 if (int.TryParse(input, out _))
                 {
@@ -34,7 +40,7 @@ namespace UDP_Client
                 }
                 else
                 {
-                    Console.WriteLine("Enter a number or 'exit'");
+                    Console.WriteLine("Enter number, 'list' or 'exit'");
                 }
             }
         }
@@ -51,7 +57,6 @@ namespace UDP_Client
                 {
                     byte[] data = _client.Receive(ref _endPoint);
                     string response = Encoding.UTF8.GetString(data);
-
                     Console.WriteLine($"Server: {response}");
                 }
                 catch

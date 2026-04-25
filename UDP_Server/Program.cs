@@ -1,10 +1,11 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Linq;
 namespace UDP_Server;
 internal class Program
 {
-    static string[] _commands = { "JOIN", "GUESS", "EXIT" };
+    static readonly int MAX_ATTEMPTS = 10;
     static readonly int MIN_VALUE = 1;
     static readonly int MAX_VALUE = 100;
     static readonly int _PORT = 5001;
@@ -14,18 +15,28 @@ internal class Program
     static void Main(string[] args)
     {
         Console.WriteLine($"Server is listening on port {_PORT}...");
+
         while (true)
         {
             IPEndPoint endPoint = new IPEndPoint(IPAddress.Any, 0);
             byte[] data = _server.Receive(ref endPoint);
+
             string message = Encoding.UTF8.GetString(data).Trim();
             string key = endPoint.ToString();
+
             Console.WriteLine($"[{key}] -> {message}");
+
             MessageHandler(key, endPoint, message);
         }
     }
     static void MessageHandler(string key, IPEndPoint endPoint, string command)
     {
+        if (command == "LIST")
+        {
+            string list = string.Join(", ", _clients.Values.Select(c => c.Name));
+            Send(endPoint, $"PLAYERS: {list}");
+            return;
+        }
         if (command.StartsWith("JOIN"))
         {
             string name = command.Length > 5
@@ -54,15 +65,32 @@ internal class Program
             return;
         }
         var clientState = _clients[key];
+        if (command == "EXIT" || command == "QUIT")
+        {
+            Console.WriteLine($"{clientState.Name} disconnected");
+            _clients.Remove(key);
+
+            Send(endPoint, "BYE");
+            return;
+        }
         if (command.StartsWith("GUESS"))
         {
             string numberPart = command.Substring(6);
+
             if (!int.TryParse(numberPart, out int guess))
             {
                 Send(endPoint, "ERROR: enter number");
                 return;
             }
             clientState.Attempts++;
+            if (clientState.Attempts > MAX_ATTEMPTS)
+            {
+                Send(endPoint, "LOSE! Too many attempts. New game.");
+
+                clientState.SecretNumber = _random.Next(MIN_VALUE, MAX_VALUE + 1);
+                clientState.Attempts = 0;
+                return;
+            }
             if (guess < clientState.SecretNumber)
             {
                 Send(endPoint, $"MORE (attempt {clientState.Attempts})");
@@ -74,17 +102,10 @@ internal class Program
             else
             {
                 Send(endPoint, $"WIN! Attempts: {clientState.Attempts}");
+
                 clientState.SecretNumber = _random.Next(MIN_VALUE, MAX_VALUE + 1);
                 clientState.Attempts = 0;
             }
-            return;
-        }
-        if (command == "EXIT")
-        {
-            Console.WriteLine($"{clientState.Name} disconnected");
-            _clients.Remove(key);
-
-            Send(endPoint, "BYE");
             return;
         }
         Send(endPoint, "ERROR: unknown command");
